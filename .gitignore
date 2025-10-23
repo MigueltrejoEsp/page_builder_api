@@ -25,3 +25,10 @@ erl_crash.dump
 # Ignore package tarball (built via "mix hex.build").
 page_builder_api-*.tar
 
+.env
+
+.envrc
+
+.direnv
+
+flake.lock
