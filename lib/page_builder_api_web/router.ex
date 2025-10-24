@@ -8,7 +8,7 @@ defmodule PageBuilderApiWeb.Router do
   scope "/api", PageBuilderApiWeb do
     pipe_through :api
 
-    get "/health", HealthCheckController, :run
+    resources "/user_links", UserLinkController
   end
 
   # Enable LiveDashboard in development
