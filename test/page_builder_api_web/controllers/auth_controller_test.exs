@@ -56,6 +56,36 @@ defmodule PageBuilderApiWeb.AuthControllerTest do
       response = json_response(conn, 422)
       assert response["errors"]["password"] != nil
     end
+
+    @tag :rate_limiting
+    test "enforces rate limit of 5 requests per hour", %{conn: conn} do
+      # Temporarily enable rate limiting for this test
+      original_value = Application.get_env(:page_builder_api, :enable_rate_limiting)
+      Application.put_env(:page_builder_api, :enable_rate_limiting, true)
+
+      try do
+        # Make 5 requests
+        for i <- 1..5 do
+          post(conn, ~p"/api/auth/register", %{
+            email: "user#{i}@test.com",
+            password: "password123"
+          })
+        end
+
+        # 6th request should be rate limited
+        conn =
+          post(conn, ~p"/api/auth/register", %{
+            email: "user6@test.com",
+            password: "password123"
+          })
+
+        assert conn.status == 429
+        assert json_response(conn, 429)["error"] =~ "Too many requests"
+      after
+        # Restore original value
+        Application.put_env(:page_builder_api, :enable_rate_limiting, original_value)
+      end
+    end
   end
 
   describe "login" do
@@ -98,6 +128,36 @@ defmodule PageBuilderApiWeb.AuthControllerTest do
     test "renders error when password is missing", %{conn: conn} do
       assert_error_sent 400, fn ->
         post(conn, ~p"/api/auth/login", %{email: "test@example.com"})
+      end
+    end
+
+    @tag :rate_limiting
+    test "enforces rate limit of 20 requests per hour", %{conn: conn} do
+      # Temporarily enable rate limiting for this test
+      original_value = Application.get_env(:page_builder_api, :enable_rate_limiting)
+      Application.put_env(:page_builder_api, :enable_rate_limiting, true)
+
+      try do
+        # Make 20 requests (all will fail auth but that's ok)
+        for _i <- 1..20 do
+          post(conn, ~p"/api/auth/login", %{
+            email: "test@example.com",
+            password: "wrongpassword"
+          })
+        end
+
+        # 21st request should be rate limited
+        conn =
+          post(conn, ~p"/api/auth/login", %{
+            email: "test@example.com",
+            password: "wrongpassword"
+          })
+
+        assert conn.status == 429
+        assert json_response(conn, 429)["error"] =~ "Too many requests"
+      after
+        # Restore original value
+        Application.put_env(:page_builder_api, :enable_rate_limiting, original_value)
       end
     end
   end
