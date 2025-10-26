@@ -5,11 +5,15 @@ defmodule PageBuilderApiWeb.AuthController do
   alias PageBuilderApi.Auth
 
   alias PageBuilderApiWeb.Schemas.{
-    UserCredentials,
-    AuthResponse,
-    RefreshTokenRequest,
+    LoginRequest,
+    LoginResponse,
+    RegisterRequest,
+    RegisterResponse,
+    RefreshRequest,
     RefreshResponse,
-    MessageResponse,
+    LogoutRequest,
+    LogoutResponse,
+    LogoutAllResponse,
     ErrorResponse,
     ValidationErrorResponse
   }
@@ -21,9 +25,9 @@ defmodule PageBuilderApiWeb.AuthController do
   operation(:register,
     summary: "Register a new user",
     description: "Create a new user account and receive authentication tokens",
-    request_body: {"User credentials", "application/json", UserCredentials, required: true},
+    request_body: {"User credentials", "application/json", RegisterRequest, required: true},
     responses: [
-      created: {"Success - User registered", "application/json", AuthResponse},
+      created: {"Success - User registered", "application/json", RegisterResponse},
       unprocessable_entity: {
         "Validation error",
         "application/json",
@@ -54,9 +58,9 @@ defmodule PageBuilderApiWeb.AuthController do
   operation(:login,
     summary: "Login user",
     description: "Authenticate user and receive authentication tokens",
-    request_body: {"User credentials", "application/json", UserCredentials, required: true},
+    request_body: {"User credentials", "application/json", LoginRequest, required: true},
     responses: [
-      ok: {"Success - User logged in", "application/json", AuthResponse},
+      ok: {"Success - User logged in", "application/json", LoginResponse},
       unauthorized: {"Invalid credentials", "application/json", ErrorResponse},
       too_many_requests: {"Rate limit exceeded (20 per hour)", "application/json", ErrorResponse}
     ]
@@ -85,7 +89,7 @@ defmodule PageBuilderApiWeb.AuthController do
     summary: "Refresh access token",
     description:
       "Get a new access and refresh token pair using a valid refresh token. The old refresh token is automatically revoked.",
-    request_body: {"Refresh token", "application/json", RefreshTokenRequest, required: true},
+    request_body: {"Refresh token", "application/json", RefreshRequest, required: true},
     responses: [
       ok: {"Success - New tokens issued", "application/json", RefreshResponse},
       unauthorized:
@@ -101,25 +105,8 @@ defmodule PageBuilderApiWeb.AuthController do
       {:ok, access_token, new_refresh_token} ->
         render(conn, :refresh, access_token: access_token, refresh_token: new_refresh_token)
 
-      {:error, :invalid_token} ->
-        conn
-        |> put_status(:unauthorized)
-        |> render(:error, message: "Invalid refresh token")
-
-      {:error, :token_expired} ->
-        conn
-        |> put_status(:unauthorized)
-        |> render(:error, message: "Refresh token expired")
-
-      {:error, :token_revoked} ->
-        conn
-        |> put_status(:unauthorized)
-        |> render(:error, message: "Refresh token has been revoked")
-
-      {:error, _} ->
-        conn
-        |> put_status(:unauthorized)
-        |> render(:error, message: "Unable to refresh token")
+      {:error, reason} ->
+        handle_refresh_error(conn, reason)
     end
   end
 
@@ -127,10 +114,9 @@ defmodule PageBuilderApiWeb.AuthController do
     summary: "Logout user (single device)",
     description:
       "Revoke the refresh token to logout from the current device. The access token remains valid until expiration (max 1 hour).",
-    request_body:
-      {"Refresh token to revoke", "application/json", RefreshTokenRequest, required: true},
+    request_body: {"Refresh token to revoke", "application/json", LogoutRequest, required: true},
     responses: [
-      ok: {"Successfully logged out", "application/json", MessageResponse},
+      ok: {"Successfully logged out", "application/json", LogoutResponse},
       not_found: {"Invalid or already revoked refresh token", "application/json", ErrorResponse}
     ]
   )
@@ -141,7 +127,7 @@ defmodule PageBuilderApiWeb.AuthController do
   def logout(conn, %{"refresh_token" => refresh_token}) do
     case Auth.logout(refresh_token) do
       {:ok, :logged_out} ->
-        render(conn, :message, message: "Successfully logged out")
+        render(conn, :logout, message: "Successfully logged out")
 
       {:error, :invalid_token} ->
         conn
@@ -156,7 +142,7 @@ defmodule PageBuilderApiWeb.AuthController do
       "Revoke all refresh tokens for the authenticated user. This logs the user out from all devices.",
     security: [%{"bearer" => []}],
     responses: [
-      ok: {"Success - Logged out from all devices", "application/json", MessageResponse},
+      ok: {"Success - Logged out from all devices", "application/json", LogoutAllResponse},
       unauthorized: {"Not authenticated", "application/json", ErrorResponse}
     ]
   )
@@ -169,7 +155,7 @@ defmodule PageBuilderApiWeb.AuthController do
 
     case Auth.logout_all(user) do
       {:ok, count} ->
-        render(conn, :message, message: "Logged out from #{count} device(s)")
+        render(conn, :logout_all, message: "Logged out from #{count} device(s)")
     end
   end
 
@@ -194,5 +180,31 @@ defmodule PageBuilderApiWeb.AuthController do
       {:ok, _user} ->
         send_resp(conn, :no_content, "")
     end
+  end
+
+  # Private functions
+
+  defp handle_refresh_error(conn, :invalid_token) do
+    conn
+    |> put_status(:unauthorized)
+    |> render(:error, message: "Invalid refresh token")
+  end
+
+  defp handle_refresh_error(conn, :token_expired) do
+    conn
+    |> put_status(:unauthorized)
+    |> render(:error, message: "Refresh token expired")
+  end
+
+  defp handle_refresh_error(conn, :token_revoked) do
+    conn
+    |> put_status(:unauthorized)
+    |> render(:error, message: "Refresh token has been revoked")
+  end
+
+  defp handle_refresh_error(conn, _reason) do
+    conn
+    |> put_status(:unauthorized)
+    |> render(:error, message: "Unable to refresh token")
   end
 end

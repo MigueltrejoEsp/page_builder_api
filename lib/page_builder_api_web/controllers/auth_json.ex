@@ -27,16 +27,16 @@ defmodule PageBuilderApiWeb.AuthJSON do
   end
 
   @doc """
-  Renders a single user.
+  Renders logout success message.
   """
-  def user(%{user: user}) do
-    %{data: user_data(user)}
+  def logout(%{message: message}) do
+    %{message: message}
   end
 
   @doc """
-  Renders a message.
+  Renders logout all success message.
   """
-  def message(%{message: message}) do
+  def logout_all(%{message: message}) do
     %{message: message}
   end
 

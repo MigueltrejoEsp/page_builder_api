@@ -1,43 +1,43 @@
 defmodule PageBuilderApiWeb.Schemas do
   alias OpenApiSpex.Schema
 
-  defmodule User do
+  # ============================================================================
+  # REQUEST SCHEMAS (what clients send)
+  # ============================================================================
+
+  defmodule LoginRequest do
     require OpenApiSpex
 
     OpenApiSpex.schema(%{
-      title: "User",
-      description: "A user account",
+      title: "LoginRequest",
+      description: "User login credentials",
       type: :object,
       properties: %{
-        id: %Schema{type: :string, format: :uuid, description: "User ID"},
-        email: %Schema{type: :string, format: :email, description: "User email address"},
-        inserted_at: %Schema{
+        email: %Schema{
           type: :string,
-          format: :"date-time",
-          description: "Account creation timestamp"
+          format: :email,
+          description: "User email address"
         },
-        updated_at: %Schema{
+        password: %Schema{
           type: :string,
-          format: :"date-time",
-          description: "Last update timestamp"
+          description: "User password",
+          format: :password
         }
       },
-      required: [:id, :email],
+      required: [:email, :password],
       example: %{
-        "id" => "a8b9c0d1-e2f3-4g5h-6i7j-8k9l0m1n2o3p",
         "email" => "user@example.com",
-        "inserted_at" => "2025-10-25T12:00:00Z",
-        "updated_at" => "2025-10-25T12:00:00Z"
+        "password" => "password123"
       }
     })
   end
 
-  defmodule UserCredentials do
+  defmodule RegisterRequest do
     require OpenApiSpex
 
     OpenApiSpex.schema(%{
-      title: "UserCredentials",
-      description: "User login/registration credentials",
+      title: "RegisterRequest",
+      description: "User registration data",
       type: :object,
       properties: %{
         email: %Schema{
@@ -63,42 +63,66 @@ defmodule PageBuilderApiWeb.Schemas do
     })
   end
 
-  defmodule TokenPair do
+  defmodule RefreshRequest do
     require OpenApiSpex
 
     OpenApiSpex.schema(%{
-      title: "TokenPair",
-      description: "Access and refresh token pair",
+      title: "RefreshRequest",
+      description: "Request to refresh access token",
       type: :object,
       properties: %{
-        access_token: %Schema{type: :string, description: "JWT access token (1 hour expiration)"},
-        refresh_token: %Schema{
-          type: :string,
-          description: "Refresh token (30 days expiration, database-backed)"
-        }
+        refresh_token: %Schema{type: :string, description: "Current refresh token"}
       },
-      required: [:access_token, :refresh_token],
+      required: [:refresh_token],
       example: %{
-        "access_token" => "eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9...",
         "refresh_token" => "gq9tNOJ8N6L7x4h2vb5ocavAo6BRLBHoQR6FDWvqZT4"
       }
     })
   end
 
-  defmodule AuthResponse do
+  defmodule LogoutRequest do
     require OpenApiSpex
 
     OpenApiSpex.schema(%{
-      title: "AuthResponse",
-      description: "Authentication response with user and tokens",
+      title: "LogoutRequest",
+      description: "Request to logout (revoke refresh token)",
+      type: :object,
+      properties: %{
+        refresh_token: %Schema{type: :string, description: "Refresh token to revoke"}
+      },
+      required: [:refresh_token],
+      example: %{
+        "refresh_token" => "gq9tNOJ8N6L7x4h2vb5ocavAo6BRLBHoQR6FDWvqZT4"
+      }
+    })
+  end
+
+  # ============================================================================
+  # RESPONSE SCHEMAS (what API returns)
+  # ============================================================================
+
+  defmodule LoginResponse do
+    require OpenApiSpex
+
+    OpenApiSpex.schema(%{
+      title: "LoginResponse",
+      description: "Successful login response with user data and tokens",
       type: :object,
       properties: %{
         data: %Schema{
           type: :object,
           properties: %{
-            user: User,
-            access_token: %Schema{type: :string, description: "JWT access token"},
-            refresh_token: %Schema{type: :string, description: "Refresh token"}
+            user: %Schema{
+              type: :object,
+              properties: %{
+                id: %Schema{type: :string, format: :uuid},
+                email: %Schema{type: :string, format: :email},
+                inserted_at: %Schema{type: :string, format: :"date-time"},
+                updated_at: %Schema{type: :string, format: :"date-time"}
+              }
+            },
+            access_token: %Schema{type: :string, description: "JWT access token (1 hour)"},
+            refresh_token: %Schema{type: :string, description: "Refresh token (30 days)"}
           },
           required: [:user, :access_token, :refresh_token]
         }
@@ -119,19 +143,44 @@ defmodule PageBuilderApiWeb.Schemas do
     })
   end
 
-  defmodule RefreshTokenRequest do
+  defmodule RegisterResponse do
     require OpenApiSpex
 
     OpenApiSpex.schema(%{
-      title: "RefreshTokenRequest",
-      description: "Request to refresh access token",
+      title: "RegisterResponse",
+      description: "Successful registration response with user data and tokens",
       type: :object,
       properties: %{
-        refresh_token: %Schema{type: :string, description: "Current refresh token"}
+        data: %Schema{
+          type: :object,
+          properties: %{
+            user: %Schema{
+              type: :object,
+              properties: %{
+                id: %Schema{type: :string, format: :uuid},
+                email: %Schema{type: :string, format: :email},
+                inserted_at: %Schema{type: :string, format: :"date-time"},
+                updated_at: %Schema{type: :string, format: :"date-time"}
+              }
+            },
+            access_token: %Schema{type: :string, description: "JWT access token (1 hour)"},
+            refresh_token: %Schema{type: :string, description: "Refresh token (30 days)"}
+          },
+          required: [:user, :access_token, :refresh_token]
+        }
       },
-      required: [:refresh_token],
+      required: [:data],
       example: %{
-        "refresh_token" => "gq9tNOJ8N6L7x4h2vb5ocavAo6BRLBHoQR6FDWvqZT4"
+        "data" => %{
+          "user" => %{
+            "id" => "a8b9c0d1-e2f3-4g5h-6i7j-8k9l0m1n2o3p",
+            "email" => "user@example.com",
+            "inserted_at" => "2025-10-25T12:00:00Z",
+            "updated_at" => "2025-10-25T12:00:00Z"
+          },
+          "access_token" => "eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9...",
+          "refresh_token" => "gq9tNOJ8N6L7x4h2vb5ocavAo6BRLBHoQR6FDWvqZT4"
+        }
       }
     })
   end
@@ -141,10 +190,20 @@ defmodule PageBuilderApiWeb.Schemas do
 
     OpenApiSpex.schema(%{
       title: "RefreshResponse",
-      description: "New token pair response",
+      description: "New token pair after successful refresh",
       type: :object,
       properties: %{
-        data: TokenPair
+        data: %Schema{
+          type: :object,
+          properties: %{
+            access_token: %Schema{type: :string, description: "New JWT access token (1 hour)"},
+            refresh_token: %Schema{
+              type: :string,
+              description: "New refresh token (30 days)"
+            }
+          },
+          required: [:access_token, :refresh_token]
+        }
       },
       required: [:data],
       example: %{
@@ -156,12 +215,12 @@ defmodule PageBuilderApiWeb.Schemas do
     })
   end
 
-  defmodule MessageResponse do
+  defmodule LogoutResponse do
     require OpenApiSpex
 
     OpenApiSpex.schema(%{
-      title: "MessageResponse",
-      description: "Success message response",
+      title: "LogoutResponse",
+      description: "Successful logout response",
       type: :object,
       properties: %{
         message: %Schema{type: :string, description: "Success message"}
@@ -169,6 +228,23 @@ defmodule PageBuilderApiWeb.Schemas do
       required: [:message],
       example: %{
         "message" => "Successfully logged out"
+      }
+    })
+  end
+
+  defmodule LogoutAllResponse do
+    require OpenApiSpex
+
+    OpenApiSpex.schema(%{
+      title: "LogoutAllResponse",
+      description: "Successful logout from all devices response",
+      type: :object,
+      properties: %{
+        message: %Schema{type: :string, description: "Success message with device count"}
+      },
+      required: [:message],
+      example: %{
+        "message" => "Logged out from 3 device(s)"
       }
     })
   end
@@ -195,7 +271,7 @@ defmodule PageBuilderApiWeb.Schemas do
 
     OpenApiSpex.schema(%{
       title: "ValidationErrorResponse",
-      description: "Validation error response",
+      description: "Validation error response with field-specific errors",
       type: :object,
       properties: %{
         errors: %Schema{

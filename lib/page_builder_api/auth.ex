@@ -158,7 +158,7 @@ defmodule PageBuilderApi.Auth do
 
   """
   def logout_all(%User{} = user) do
-    now = DateTime.utc_now() |> DateTime.truncate(:second)
+    now = utc_now()
 
     {count, _} =
       from(rt in RefreshToken,
@@ -170,6 +170,8 @@ defmodule PageBuilderApi.Auth do
   end
 
   # Private functions
+
+  defp utc_now, do: DateTime.utc_now() |> DateTime.truncate(:second)
 
   defp get_user_by_email(email) when is_binary(email) do
     Repo.get_by(User, email: email)
@@ -219,7 +221,7 @@ defmodule PageBuilderApi.Auth do
 
   defp revoke_refresh_token(%RefreshToken{} = refresh_token) do
     refresh_token
-    |> RefreshToken.changeset(%{revoked_at: DateTime.utc_now() |> DateTime.truncate(:second)})
+    |> RefreshToken.changeset(%{revoked_at: utc_now()})
     |> Repo.update()
   end
 end
