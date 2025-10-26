@@ -2,13 +2,26 @@ defmodule PageBuilderApiWeb.AuthJSON do
   alias PageBuilderApi.Authentication.User
 
   @doc """
-  Renders a user with token.
+  Renders tokens with user data (for register and login).
   """
-  def user_with_token(%{user: user, token: token}) do
+  def tokens(%{user: user, access_token: access_token, refresh_token: refresh_token}) do
     %{
       data: %{
         user: user_data(user),
-        token: token
+        access_token: access_token,
+        refresh_token: refresh_token
+      }
+    }
+  end
+
+  @doc """
+  Renders new token pair (for refresh).
+  """
+  def refresh(%{access_token: access_token, refresh_token: refresh_token}) do
+    %{
+      data: %{
+        access_token: access_token,
+        refresh_token: refresh_token
       }
     }
   end

@@ -1,8 +1,11 @@
 defmodule PageBuilderApi.AuthenticationTest do
   use PageBuilderApi.DataCase
 
+  import Ecto.Query
+
   alias PageBuilderApi.Authentication
   alias PageBuilderApi.Authentication.User
+  alias PageBuilderApi.Repo
 
   @valid_attrs %{email: "test@example.com", password: "password123"}
   @update_attrs %{email: "updated@example.com"}
@@ -10,7 +13,7 @@ defmodule PageBuilderApi.AuthenticationTest do
   def user_fixture(attrs \\ %{})
 
   def user_fixture(attrs) do
-    {:ok, user, _token} =
+    {:ok, user, _access_token, _refresh_token} =
       attrs
       |> Enum.into(@valid_attrs)
       |> Authentication.register()
@@ -52,11 +55,13 @@ defmodule PageBuilderApi.AuthenticationTest do
   end
 
   describe "register/1" do
-    test "with valid credentials creates user and returns token" do
-      assert {:ok, user, token} = Authentication.register(@valid_attrs)
+    test "with valid credentials creates user and returns tokens" do
+      assert {:ok, user, access_token, refresh_token} = Authentication.register(@valid_attrs)
       assert user.email == "test@example.com"
-      assert is_binary(token)
-      assert String.length(token) > 0
+      assert is_binary(access_token)
+      assert String.length(access_token) > 0
+      assert is_binary(refresh_token)
+      assert String.length(refresh_token) > 0
     end
 
     test "with invalid credentials returns error" do
@@ -86,11 +91,15 @@ defmodule PageBuilderApi.AuthenticationTest do
   end
 
   describe "login/2" do
-    test "with valid credentials returns user and token" do
+    test "with valid credentials returns user and tokens" do
       user_fixture()
-      assert {:ok, user, token} = Authentication.login("test@example.com", "password123")
+
+      assert {:ok, user, access_token, refresh_token} =
+               Authentication.login("test@example.com", "password123")
+
       assert user.email == "test@example.com"
-      assert is_binary(token)
+      assert is_binary(access_token)
+      assert is_binary(refresh_token)
     end
 
     test "with invalid email returns error" do
@@ -100,6 +109,110 @@ defmodule PageBuilderApi.AuthenticationTest do
     test "with invalid password returns error" do
       user_fixture()
       assert {:error, :unauthorized} = Authentication.login("test@example.com", "wrongpassword")
+    end
+  end
+
+  describe "refresh/1" do
+    test "with valid refresh token returns new token pair" do
+      {:ok, _user, _access_token, refresh_token} = Authentication.register(@valid_attrs)
+
+      assert {:ok, new_access_token, new_refresh_token} = Authentication.refresh(refresh_token)
+      assert is_binary(new_access_token)
+      assert is_binary(new_refresh_token)
+      assert new_refresh_token != refresh_token
+    end
+
+    test "revokes old refresh token after successful refresh" do
+      {:ok, _user, _access_token, refresh_token} = Authentication.register(@valid_attrs)
+
+      assert {:ok, _new_access_token, _new_refresh_token} = Authentication.refresh(refresh_token)
+      assert {:error, :token_revoked} = Authentication.refresh(refresh_token)
+    end
+
+    test "with invalid refresh token returns error" do
+      assert {:error, :invalid_token} = Authentication.refresh("invalid_token")
+    end
+
+    test "with expired refresh token returns error" do
+      {:ok, _user, _access_token, refresh_token} = Authentication.register(@valid_attrs)
+
+      # Manually expire the token by updating the database
+      from(rt in PageBuilderApi.Authentication.RefreshToken, where: rt.token == ^refresh_token)
+      |> Repo.update_all(set: [expires_at: DateTime.add(DateTime.utc_now(), -1, :day)])
+
+      assert {:error, :token_expired} = Authentication.refresh(refresh_token)
+    end
+
+    test "with revoked refresh token returns error" do
+      {:ok, _user, _access_token, refresh_token} = Authentication.register(@valid_attrs)
+
+      # Revoke the token
+      {:ok, :logged_out} = Authentication.logout(refresh_token)
+
+      assert {:error, :token_revoked} = Authentication.refresh(refresh_token)
+    end
+  end
+
+  describe "logout/1" do
+    test "with valid refresh token revokes it" do
+      {:ok, _user, _access_token, refresh_token} = Authentication.register(@valid_attrs)
+
+      assert {:ok, :logged_out} = Authentication.logout(refresh_token)
+      assert {:error, :token_revoked} = Authentication.refresh(refresh_token)
+    end
+
+    test "with invalid refresh token returns error" do
+      assert {:error, :invalid_token} = Authentication.logout("invalid_token")
+    end
+
+    test "with already revoked token returns error" do
+      {:ok, _user, _access_token, refresh_token} = Authentication.register(@valid_attrs)
+
+      assert {:ok, :logged_out} = Authentication.logout(refresh_token)
+      assert {:error, :invalid_token} = Authentication.logout(refresh_token)
+    end
+  end
+
+  describe "logout_all/1" do
+    test "revokes all refresh tokens for a user" do
+      {:ok, user, _access_token1, refresh_token1} = Authentication.register(@valid_attrs)
+
+      {:ok, _user, _access_token2, refresh_token2} =
+        Authentication.login("test@example.com", "password123")
+
+      {:ok, _user, _access_token3, refresh_token3} =
+        Authentication.login("test@example.com", "password123")
+
+      assert {:ok, 3} = Authentication.logout_all(user)
+
+      # All tokens should be revoked
+      assert {:error, :token_revoked} = Authentication.refresh(refresh_token1)
+      assert {:error, :token_revoked} = Authentication.refresh(refresh_token2)
+      assert {:error, :token_revoked} = Authentication.refresh(refresh_token3)
+    end
+
+    test "returns count of 0 when user has no refresh tokens" do
+      user = user_fixture()
+
+      # Revoke all existing tokens first
+      {:ok, _count} = Authentication.logout_all(user)
+
+      assert {:ok, 0} = Authentication.logout_all(user)
+    end
+
+    test "does not affect other users' tokens" do
+      {:ok, user1, _access_token1, refresh_token1} = Authentication.register(@valid_attrs)
+
+      {:ok, _user2, _access_token2, refresh_token2} =
+        Authentication.register(%{email: "other@example.com", password: "password123"})
+
+      assert {:ok, 1} = Authentication.logout_all(user1)
+
+      # user1's token should be revoked
+      assert {:error, :token_revoked} = Authentication.refresh(refresh_token1)
+
+      # user2's token should still be valid
+      assert {:ok, _new_access, _new_refresh} = Authentication.refresh(refresh_token2)
     end
   end
 end

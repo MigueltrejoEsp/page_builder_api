@@ -15,14 +15,14 @@ defmodule PageBuilderApiWeb.UserControllerTest do
   @invalid_attrs %{email: "invalid"}
 
   setup %{conn: conn} do
-    {:ok, user, token} = Authentication.register(@create_attrs)
+    {:ok, user, access_token, _refresh_token} = Authentication.register(@create_attrs)
 
     conn =
       conn
       |> put_req_header("accept", "application/json")
-      |> put_req_header("authorization", "Bearer #{token}")
+      |> put_req_header("authorization", "Bearer #{access_token}")
 
-    {:ok, conn: conn, user: user, token: token}
+    {:ok, conn: conn, user: user, token: access_token}
   end
 
   describe "show" do

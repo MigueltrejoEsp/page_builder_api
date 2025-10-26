@@ -23,6 +23,18 @@ defmodule PageBuilderApiWeb.Router do
     get "/health", HealthCheckController, :run
   end
 
+  scope "/api" do
+    pipe_through :api
+
+    # OpenAPI spec endpoint
+    get "/openapi", OpenApiSpex.Plug.RenderSpec, []
+
+    # Swagger UI
+    get "/swagger", OpenApiSpex.Plug.SwaggerUI,
+      path: "/api/openapi",
+      default_model_expand_depth: 3
+  end
+
   scope "/api", PageBuilderApiWeb do
     pipe_through [:api, :registration_rate_limit]
 
@@ -37,7 +49,18 @@ defmodule PageBuilderApiWeb.Router do
   end
 
   scope "/api", PageBuilderApiWeb do
+    pipe_through :api
+
+    # Token management routes (no rate limit for refresh/logout)
+    post "/auth/refresh", AuthController, :refresh
+    post "/auth/logout", AuthController, :logout
+  end
+
+  scope "/api", PageBuilderApiWeb do
     pipe_through [:api, :auth]
+
+    # Logout from all devices (requires authentication)
+    post "/auth/logout-all", AuthController, :logout_all
 
     # User profile routes
     get "/user/profile", UserController, :show

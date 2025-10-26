@@ -50,6 +50,8 @@ defmodule PageBuilderApiWeb.Endpoint do
     pass: ["*/*"],
     json_decoder: Phoenix.json_library()
 
+  plug OpenApiSpex.Plug.PutApiSpec, module: PageBuilderApiWeb.ApiSpec
+
   plug Plug.MethodOverride
   plug Plug.Head
   plug Plug.Session, @session_options

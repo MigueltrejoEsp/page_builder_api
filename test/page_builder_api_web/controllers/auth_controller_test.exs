@@ -15,13 +15,18 @@ defmodule PageBuilderApiWeb.AuthControllerTest do
   end
 
   describe "register" do
-    test "renders user and token when data is valid", %{conn: conn} do
+    test "renders user and tokens when data is valid", %{conn: conn} do
       conn = post(conn, ~p"/api/auth/register", @create_attrs)
       assert %{"data" => data} = json_response(conn, 201)
-      assert %{"user" => user, "token" => token} = data
+
+      assert %{"user" => user, "access_token" => access_token, "refresh_token" => refresh_token} =
+               data
+
       assert user["email"] == "test@example.com"
-      assert is_binary(token)
-      assert String.length(token) > 0
+      assert is_binary(access_token)
+      assert String.length(access_token) > 0
+      assert is_binary(refresh_token)
+      assert String.length(refresh_token) > 0
     end
 
     test "renders errors when data is invalid", %{conn: conn} do
@@ -54,14 +59,18 @@ defmodule PageBuilderApiWeb.AuthControllerTest do
   describe "login" do
     setup [:create_user]
 
-    test "renders user and token when credentials are valid", %{conn: conn} do
+    test "renders user and tokens when credentials are valid", %{conn: conn} do
       conn =
         post(conn, ~p"/api/auth/login", %{email: "test@example.com", password: "password123"})
 
       assert %{"data" => data} = json_response(conn, 200)
-      assert %{"user" => user, "token" => token} = data
+
+      assert %{"user" => user, "access_token" => access_token, "refresh_token" => refresh_token} =
+               data
+
       assert user["email"] == "test@example.com"
-      assert is_binary(token)
+      assert is_binary(access_token)
+      assert is_binary(refresh_token)
     end
 
     test "renders error when email is invalid", %{conn: conn} do
@@ -91,8 +100,133 @@ defmodule PageBuilderApiWeb.AuthControllerTest do
     end
   end
 
+  describe "refresh" do
+    setup [:create_user]
+
+    test "returns new token pair with valid refresh token", %{
+      conn: conn,
+      refresh_token: refresh_token
+    } do
+      conn = post(conn, ~p"/api/auth/refresh", %{refresh_token: refresh_token})
+
+      assert %{"data" => data} = json_response(conn, 200)
+      assert %{"access_token" => new_access_token, "refresh_token" => new_refresh_token} = data
+      assert is_binary(new_access_token)
+      assert is_binary(new_refresh_token)
+      assert new_refresh_token != refresh_token
+    end
+
+    test "renders error with invalid refresh token", %{conn: conn} do
+      conn = post(conn, ~p"/api/auth/refresh", %{refresh_token: "invalid_token"})
+
+      assert json_response(conn, 401)["error"] == "Invalid refresh token"
+    end
+
+    test "renders error with revoked refresh token", %{conn: conn, refresh_token: refresh_token} do
+      # Revoke the token first
+      post(conn, ~p"/api/auth/logout", %{refresh_token: refresh_token})
+
+      # Try to use the revoked token
+      conn = post(conn, ~p"/api/auth/refresh", %{refresh_token: refresh_token})
+
+      assert json_response(conn, 401)["error"] == "Refresh token has been revoked"
+    end
+
+    test "renders error when refresh_token is missing", %{conn: conn} do
+      assert_error_sent 400, fn ->
+        post(conn, ~p"/api/auth/refresh", %{})
+      end
+    end
+  end
+
+  describe "logout" do
+    setup [:create_user]
+
+    test "successfully logs out with valid refresh token", %{
+      conn: conn,
+      refresh_token: refresh_token
+    } do
+      conn = post(conn, ~p"/api/auth/logout", %{refresh_token: refresh_token})
+
+      assert %{"message" => message} = json_response(conn, 200)
+      assert message == "Successfully logged out"
+
+      # Verify token cannot be used again
+      conn = post(conn, ~p"/api/auth/refresh", %{refresh_token: refresh_token})
+      assert json_response(conn, 401)["error"] == "Refresh token has been revoked"
+    end
+
+    test "renders error with invalid refresh token", %{conn: conn} do
+      conn = post(conn, ~p"/api/auth/logout", %{refresh_token: "invalid_token"})
+
+      assert json_response(conn, 404)["error"] == "Invalid refresh token"
+    end
+
+    test "renders error when refresh_token is missing", %{conn: conn} do
+      assert_error_sent 400, fn ->
+        post(conn, ~p"/api/auth/logout", %{})
+      end
+    end
+  end
+
+  describe "logout_all" do
+    setup [:create_user]
+
+    test "logs out from all devices", %{
+      conn: conn,
+      access_token: access_token,
+      refresh_token: refresh_token
+    } do
+      # Create another session
+      login_conn =
+        post(conn, ~p"/api/auth/login", %{email: "test@example.com", password: "password123"})
+
+      %{"data" => %{"refresh_token" => refresh_token2}} = json_response(login_conn, 200)
+
+      # Logout all
+      conn =
+        conn
+        |> put_req_header("authorization", "Bearer #{access_token}")
+        |> post(~p"/api/auth/logout-all")
+
+      assert %{"message" => message} = json_response(conn, 200)
+      assert message =~ "Logged out from"
+      assert message =~ "device(s)"
+
+      # Verify both tokens are revoked
+      conn1 = post(conn, ~p"/api/auth/refresh", %{refresh_token: refresh_token})
+      assert json_response(conn1, 401)["error"] == "Refresh token has been revoked"
+
+      conn2 = post(conn, ~p"/api/auth/refresh", %{refresh_token: refresh_token2})
+      assert json_response(conn2, 401)["error"] == "Refresh token has been revoked"
+    end
+
+    test "requires authentication", %{conn: conn} do
+      conn = post(conn, ~p"/api/auth/logout-all")
+      assert json_response(conn, 401)["error"] == "unauthenticated"
+    end
+
+    test "returns count of 0 when no active sessions", %{
+      conn: conn,
+      access_token: access_token,
+      refresh_token: refresh_token
+    } do
+      # Logout first
+      post(conn, ~p"/api/auth/logout", %{refresh_token: refresh_token})
+
+      # Try logout all
+      conn =
+        conn
+        |> put_req_header("authorization", "Bearer #{access_token}")
+        |> post(~p"/api/auth/logout-all")
+
+      assert %{"message" => message} = json_response(conn, 200)
+      assert message == "Logged out from 0 device(s)"
+    end
+  end
+
   defp create_user(_) do
-    {:ok, user, _token} = Authentication.register(@create_attrs)
-    %{user: user}
+    {:ok, user, access_token, refresh_token} = Authentication.register(@create_attrs)
+    %{user: user, access_token: access_token, refresh_token: refresh_token}
   end
 end

@@ -10,6 +10,8 @@ defmodule PageBuilderApi.Authentication.User do
     field :password_hash, :string
     field :password, :string, virtual: true
 
+    has_many :refresh_tokens, PageBuilderApi.Authentication.RefreshToken
+
     timestamps(type: :utc_datetime)
   end
 
