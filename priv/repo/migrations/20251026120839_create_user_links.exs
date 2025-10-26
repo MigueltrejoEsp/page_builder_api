@@ -3,8 +3,8 @@ defmodule PageBuilderApi.Repo.Migrations.CreateUserLinks do
 
   def change do
     create table(:user_links) do
-      add :label, :string
-      add :url, :string
+      add :label, :string, null: false
+      add :url, :string, null: false
 
       timestamps(type: :utc_datetime)
     end
