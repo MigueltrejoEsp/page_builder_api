@@ -39,10 +39,18 @@ defmodule PageBuilderApiWeb.Endpoint do
   plug Plug.RequestId
   plug Plug.Telemetry, event_prefix: [:phoenix, :endpoint]
 
+  plug CORSPlug,
+    origin: ["http://localhost:3000", "http://localhost:5173"],
+    credentials: true,
+    max_age: 86400,
+    headers: ["Authorization", "Content-Type", "Accept", "Origin"]
+
   plug Plug.Parsers,
     parsers: [:urlencoded, :multipart, :json],
     pass: ["*/*"],
     json_decoder: Phoenix.json_library()
+
+  plug OpenApiSpex.Plug.PutApiSpec, module: PageBuilderApiWeb.ApiSpec
 
   plug Plug.MethodOverride
   plug Plug.Head

@@ -21,6 +21,7 @@
         POSTGRES_PASSWORD = "postgres";
         POSTGRES_HOST = "localhost";
         POSTGRES_DB = "page_builder_dev";
+        GUARDIAN_SECRET_KEY = "definitely_a_secret_key";
       };
 
       shellHook = ''

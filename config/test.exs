@@ -1,5 +1,11 @@
 import Config
 
+# Set environment to test
+config :page_builder_api, :env, :test
+
+# Disable rate limiting in tests
+config :page_builder_api, :enable_rate_limiting, false
+
 # Configure your database
 #
 # The MIX_TEST_PARTITION environment variable can be used

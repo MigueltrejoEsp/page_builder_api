@@ -12,6 +12,10 @@ defmodule PageBuilderApiWeb.ErrorJSON do
   #   %{errors: %{detail: "Internal Server Error"}}
   # end
 
+  def render("429.json", _assigns) do
+    %{error: "Too many requests. Please try again later."}
+  end
+
   # By default, Phoenix returns the status message from
   # the template name. For example, "404.json" becomes
   # "Not Found".

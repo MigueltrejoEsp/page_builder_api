@@ -5,10 +5,63 @@ defmodule PageBuilderApiWeb.Router do
     plug :accepts, ["json"]
   end
 
+  pipeline :auth do
+    plug PageBuilderApiWeb.Plugs.AuthPipeline
+  end
+
+  pipeline :registration_rate_limit do
+    plug PageBuilderApiWeb.Plugs.RateLimit, max_requests: 5, interval_ms: 3_600_000
+  end
+
+  pipeline :login_rate_limit do
+    plug PageBuilderApiWeb.Plugs.RateLimit, max_requests: 20, interval_ms: 3_600_000
+  end
+
   scope "/api", PageBuilderApiWeb do
     pipe_through :api
 
     get "/health", HealthCheckController, :run
+  end
+
+  scope "/api" do
+    pipe_through :api
+
+    # OpenAPI spec endpoint
+    get "/openapi", OpenApiSpex.Plug.RenderSpec, []
+
+    # Swagger UI
+    get "/swagger", OpenApiSpex.Plug.SwaggerUI,
+      path: "/api/openapi",
+      default_model_expand_depth: 3
+  end
+
+  scope "/api", PageBuilderApiWeb do
+    pipe_through [:api, :registration_rate_limit]
+
+    # Public authentication routes with rate limiting
+    post "/auth/register", AuthController, :register
+  end
+
+  scope "/api", PageBuilderApiWeb do
+    pipe_through [:api, :login_rate_limit]
+
+    post "/auth/login", AuthController, :login
+  end
+
+  scope "/api", PageBuilderApiWeb do
+    pipe_through :api
+
+    # Token management routes (no rate limit for refresh/logout)
+    post "/auth/refresh", AuthController, :refresh
+    post "/auth/logout", AuthController, :logout
+  end
+
+  scope "/api", PageBuilderApiWeb do
+    pipe_through [:api, :auth]
+
+    # Protected authentication routes (require authentication)
+    post "/auth/logout-all", AuthController, :logout_all
+    delete "/auth/unregister", AuthController, :unregister
   end
 
   # Enable LiveDashboard in development
