@@ -30,6 +30,15 @@ config :logger, :console,
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason
 
+# Guardian configuration
+config :page_builder_api, PageBuilderApi.Guardian,
+  issuer: "page_builder_api",
+  secret_key: System.get_env("GUARDIAN_SECRET_KEY")
+
+# Hammer rate limiting configuration
+config :hammer,
+  backend: {Hammer.Backend.ETS, [expiry_ms: 60_000 * 60 * 4, cleanup_interval_ms: 60_000 * 10]}
+
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.
 import_config "#{config_env()}.exs"

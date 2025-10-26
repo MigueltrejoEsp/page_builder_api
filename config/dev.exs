@@ -61,3 +61,7 @@ config :phoenix, :stacktrace_depth, 20
 
 # Initialize plugs at runtime for faster development compilation
 config :phoenix, :plug_init_mode, :runtime
+
+# Guardian secret key for development (generate with: mix guardian.gen.secret)
+config :page_builder_api, PageBuilderApi.Guardian,
+  secret_key: "wJ3qCxMdQVV8YhTBvKNvgPmPvVBFZdIb1cZgDNwR0qQx5dJnLqD8J9kVbZqKxVq0"
