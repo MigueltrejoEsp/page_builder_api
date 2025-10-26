@@ -1,7 +1,9 @@
 defmodule PageBuilderApiWeb.AuthControllerTest do
   use PageBuilderApiWeb.ConnCase
 
-  alias PageBuilderApi.Authentication
+  import Ecto.Query
+
+  alias PageBuilderApi.Auth
 
   @create_attrs %{
     email: "test@example.com",
@@ -225,8 +227,65 @@ defmodule PageBuilderApiWeb.AuthControllerTest do
     end
   end
 
+  describe "unregister" do
+    setup [:create_user]
+
+    test "deletes user account when authenticated", %{
+      conn: conn,
+      access_token: access_token,
+      user: user
+    } do
+      conn =
+        conn
+        |> put_req_header("authorization", "Bearer #{access_token}")
+        |> delete(~p"/api/auth/unregister")
+
+      assert response(conn, 204)
+
+      # Verify user is deleted
+      assert Auth.get_user(user.id) == nil
+    end
+
+    test "requires authentication", %{conn: conn} do
+      conn = delete(conn, ~p"/api/auth/unregister")
+      assert json_response(conn, 401)["error"] == "unauthenticated"
+    end
+
+    test "deletes all associated refresh tokens", %{
+      conn: conn,
+      access_token: access_token,
+      user: user
+    } do
+      # Create another session
+      post(conn, ~p"/api/auth/login", %{email: "test@example.com", password: "password123"})
+
+      # Count refresh tokens before deletion
+      refresh_tokens_before =
+        PageBuilderApi.Repo.all(
+          from rt in PageBuilderApi.Auth.RefreshToken,
+            where: rt.user_id == ^user.id
+        )
+
+      assert length(refresh_tokens_before) == 2
+
+      # Delete account
+      conn
+      |> put_req_header("authorization", "Bearer #{access_token}")
+      |> delete(~p"/api/auth/unregister")
+
+      # Verify refresh tokens are deleted (cascade delete)
+      refresh_tokens_after =
+        PageBuilderApi.Repo.all(
+          from rt in PageBuilderApi.Auth.RefreshToken,
+            where: rt.user_id == ^user.id
+        )
+
+      assert length(refresh_tokens_after) == 0
+    end
+  end
+
   defp create_user(_) do
-    {:ok, user, access_token, refresh_token} = Authentication.register(@create_attrs)
+    {:ok, user, access_token, refresh_token} = Auth.register(@create_attrs)
     %{user: user, access_token: access_token, refresh_token: refresh_token}
   end
 end

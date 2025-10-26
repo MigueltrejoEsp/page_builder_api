@@ -1,4 +1,4 @@
-defmodule PageBuilderApi.Authentication.RefreshToken do
+defmodule PageBuilderApi.Auth.RefreshToken do
   use Ecto.Schema
   import Ecto.Changeset
 
@@ -10,7 +10,7 @@ defmodule PageBuilderApi.Authentication.RefreshToken do
     field :expires_at, :utc_datetime
     field :revoked_at, :utc_datetime
 
-    belongs_to :user, PageBuilderApi.Authentication.User
+    belongs_to :user, PageBuilderApi.Auth.User
 
     timestamps(type: :utc_datetime)
   end

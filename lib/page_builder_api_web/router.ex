@@ -59,13 +59,9 @@ defmodule PageBuilderApiWeb.Router do
   scope "/api", PageBuilderApiWeb do
     pipe_through [:api, :auth]
 
-    # Logout from all devices (requires authentication)
+    # Protected authentication routes (require authentication)
     post "/auth/logout-all", AuthController, :logout_all
-
-    # User profile routes
-    get "/user/profile", UserController, :show
-    put "/user/profile", UserController, :update
-    delete "/user/profile", UserController, :delete
+    delete "/auth/unregister", AuthController, :unregister
   end
 
   # Enable LiveDashboard in development

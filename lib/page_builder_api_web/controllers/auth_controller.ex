@@ -2,7 +2,7 @@ defmodule PageBuilderApiWeb.AuthController do
   use PageBuilderApiWeb, :controller
   use OpenApiSpex.ControllerSpecs
 
-  alias PageBuilderApi.Authentication
+  alias PageBuilderApi.Auth
 
   alias PageBuilderApiWeb.Schemas.{
     UserCredentials,
@@ -37,7 +37,7 @@ defmodule PageBuilderApiWeb.AuthController do
   Register a new user
   """
   def register(conn, %{"email" => email, "password" => password}) do
-    case Authentication.register(%{email: email, password: password}) do
+    case Auth.register(%{email: email, password: password}) do
       {:ok, user, access_token, refresh_token} ->
         conn
         |> put_status(:created)
@@ -66,7 +66,7 @@ defmodule PageBuilderApiWeb.AuthController do
   Login a user
   """
   def login(conn, %{"email" => email, "password" => password}) do
-    case Authentication.login(email, password) do
+    case Auth.login(email, password) do
       {:ok, user, access_token, refresh_token} ->
         render(conn, :tokens,
           user: user,
@@ -97,7 +97,7 @@ defmodule PageBuilderApiWeb.AuthController do
   Refresh access token using refresh token
   """
   def refresh(conn, %{"refresh_token" => refresh_token}) do
-    case Authentication.refresh(refresh_token) do
+    case Auth.refresh(refresh_token) do
       {:ok, access_token, new_refresh_token} ->
         render(conn, :refresh, access_token: access_token, refresh_token: new_refresh_token)
 
@@ -139,7 +139,7 @@ defmodule PageBuilderApiWeb.AuthController do
   Logout user by revoking refresh token
   """
   def logout(conn, %{"refresh_token" => refresh_token}) do
-    case Authentication.logout(refresh_token) do
+    case Auth.logout(refresh_token) do
       {:ok, :logged_out} ->
         render(conn, :message, message: "Successfully logged out")
 
@@ -167,9 +167,32 @@ defmodule PageBuilderApiWeb.AuthController do
   def logout_all(conn, _params) do
     user = Guardian.Plug.current_resource(conn)
 
-    case Authentication.logout_all(user) do
+    case Auth.logout_all(user) do
       {:ok, count} ->
         render(conn, :message, message: "Logged out from #{count} device(s)")
+    end
+  end
+
+  operation(:unregister,
+    summary: "Delete user account",
+    description:
+      "Permanently delete the authenticated user's account and all associated data including refresh tokens.",
+    security: [%{"bearer" => []}],
+    responses: [
+      no_content: {"Account deleted successfully", "application/json", nil},
+      unauthorized: {"Not authenticated", "application/json", ErrorResponse}
+    ]
+  )
+
+  @doc """
+  Delete user account
+  """
+  def unregister(conn, _params) do
+    user = Guardian.Plug.current_resource(conn)
+
+    case Auth.delete_user(user) do
+      {:ok, _user} ->
+        send_resp(conn, :no_content, "")
     end
   end
 end

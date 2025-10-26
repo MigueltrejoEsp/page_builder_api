@@ -1,12 +1,12 @@
-defmodule PageBuilderApi.Authentication do
+defmodule PageBuilderApi.Auth do
   @moduledoc """
-  The Authentication context.
+  The Auth context.
   """
 
   import Ecto.Query, warn: false
   alias PageBuilderApi.Repo
-  alias PageBuilderApi.Authentication.User
-  alias PageBuilderApi.Authentication.RefreshToken
+  alias PageBuilderApi.Auth.User
+  alias PageBuilderApi.Auth.RefreshToken
   alias PageBuilderApi.Guardian
 
   @doc """
@@ -24,24 +24,6 @@ defmodule PageBuilderApi.Authentication do
 
   """
   def get_user(id), do: Repo.get(User, id)
-
-  @doc """
-  Updates a user.
-
-  ## Examples
-
-      iex> update_user(user, %{field: new_value})
-      {:ok, %User{}}
-
-      iex> update_user(user, %{field: bad_value})
-      {:error, %Ecto.Changeset{}}
-
-  """
-  def update_user(%User{} = user, attrs) do
-    user
-    |> User.update_changeset(attrs)
-    |> Repo.update()
-  end
 
   @doc """
   Deletes a user.

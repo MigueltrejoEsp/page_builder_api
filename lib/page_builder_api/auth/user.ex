@@ -1,4 +1,4 @@
-defmodule PageBuilderApi.Authentication.User do
+defmodule PageBuilderApi.Auth.User do
   use Ecto.Schema
   import Ecto.Changeset
 
@@ -10,7 +10,7 @@ defmodule PageBuilderApi.Authentication.User do
     field :password_hash, :string
     field :password, :string, virtual: true
 
-    has_many :refresh_tokens, PageBuilderApi.Authentication.RefreshToken
+    has_many :refresh_tokens, PageBuilderApi.Auth.RefreshToken
 
     timestamps(type: :utc_datetime)
   end

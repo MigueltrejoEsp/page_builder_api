@@ -156,49 +156,6 @@ defmodule PageBuilderApiWeb.Schemas do
     })
   end
 
-  defmodule UserResponse do
-    require OpenApiSpex
-
-    OpenApiSpex.schema(%{
-      title: "UserResponse",
-      description: "User profile response",
-      type: :object,
-      properties: %{
-        data: User
-      },
-      required: [:data],
-      example: %{
-        "data" => %{
-          "id" => "a8b9c0d1-e2f3-4g5h-6i7j-8k9l0m1n2o3p",
-          "email" => "user@example.com",
-          "inserted_at" => "2025-10-25T12:00:00Z",
-          "updated_at" => "2025-10-25T12:00:00Z"
-        }
-      }
-    })
-  end
-
-  defmodule UserUpdate do
-    require OpenApiSpex
-
-    OpenApiSpex.schema(%{
-      title: "UserUpdate",
-      description: "User profile update request",
-      type: :object,
-      properties: %{
-        email: %Schema{
-          type: :string,
-          format: :email,
-          description: "New email address",
-          maxLength: 160
-        }
-      },
-      example: %{
-        "email" => "newemail@example.com"
-      }
-    })
-  end
-
   defmodule MessageResponse do
     require OpenApiSpex
 

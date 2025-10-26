@@ -1,7 +1,7 @@
 defmodule PageBuilderApi.Guardian do
   use Guardian, otp_app: :page_builder_api
 
-  alias PageBuilderApi.Authentication
+  alias PageBuilderApi.Auth
 
   def subject_for_token(%{id: id}, _claims) do
     {:ok, to_string(id)}
@@ -12,7 +12,7 @@ defmodule PageBuilderApi.Guardian do
   end
 
   def resource_from_claims(%{"sub" => id}) do
-    case Authentication.get_user(id) do
+    case Auth.get_user(id) do
       nil -> {:error, :resource_not_found}
       user -> {:ok, user}
     end

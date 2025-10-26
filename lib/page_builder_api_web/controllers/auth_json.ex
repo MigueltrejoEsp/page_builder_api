@@ -1,5 +1,5 @@
 defmodule PageBuilderApiWeb.AuthJSON do
-  alias PageBuilderApi.Authentication.User
+  alias PageBuilderApi.Auth.User
 
   @doc """
   Renders tokens with user data (for register and login).
