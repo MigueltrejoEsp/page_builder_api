@@ -1,7 +1,7 @@
 defmodule PageBuilderApiWeb.HealthCheckController do
   use PageBuilderApiWeb, :controller
 
-  def run(conn, params) do
+  def run(conn, _params) do
     conn
     |> Plug.Conn.send_resp(200, "Healthy")
     |> Plug.Conn.halt()
